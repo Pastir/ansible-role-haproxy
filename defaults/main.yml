@@ -6,30 +6,40 @@
 # 2.9 (Focal 20.04), (Jammy 22.04), (Noble 24.04)
 # 3.0 (Focal 20.04), (Jammy 22.04), (Noble 24.04)
 # 3.1 (Noble 24.04)
-__haproxy_major_version: "2.9"
-__haproxy_version: 2.9.*
-__haproxy_repository: "ppa:vbernat/haproxy-{{ haproxy_major_version | default(__haproxy_major_version) }}"
-__haproxy_cfg_file: "/etc/haproxy/haproxy.cfg"
+
+# HAProxy version configuration
+haproxy_major_version: "2.9"
+haproxy_version: "2.9.*"
+haproxy_repository: "ppa:vbernat/haproxy-{{ haproxy_major_version }}"
+haproxy_cfg_file: "/etc/haproxy/haproxy.cfg"
+haproxy_custom_config_file: ""
+
+# Ubuntu specific variables
+ubuntu_unsupported: false
+haproxy_unsupported: false
 
 # Configuration section, docs https://docs.haproxy.org/2.9/configuration.html
-__haproxy_config:
+haproxy_config:
   - section: global
     log:
       - /dev/log    local0
       - /dev/log    local1 notice
     chroot: /var/lib/haproxy
     stats:
-      - socket /run/haproxy/admin.sock mode 660 level admin
-      - timeout 30s
+      - socket: /run/haproxy/admin.sock mode 660 level admin
+      - timeout: 30s
     user: haproxy
     group: haproxy
-    # This option is ignored in systemd mode.
-    daemon:
-    # Default SSL material locations
-    ca-base: /etc/ssl/certs
-    crt-base: /etc/ssl/private
-    # See: https://ssl-config.mozilla.org/#server=haproxy&server-version=2.0.3&config=intermediate
-    ssl-default-bind-ciphers: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
+    # SSL settings
+    ssl-default-bind-ciphers: |
+      ECDHE-ECDSA-AES128-GCM-SHA256:
+      ECDHE-RSA-AES128-GCM-SHA256:
+      ECDHE-ECDSA-AES256-GCM-SHA384:
+      ECDHE-RSA-AES256-GCM-SHA384:
+      ECDHE-ECDSA-CHACHA20-POLY1305:
+      ECDHE-RSA-CHACHA20-POLY1305:
+      DHE-RSA-AES128-GCM-SHA256:
+      DHE-RSA-AES256-GCM-SHA384
     ssl-default-bind-ciphersuites: TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
     ssl-default-bind-options: ssl-min-ver TLSv1.2 no-tls-tickets
 

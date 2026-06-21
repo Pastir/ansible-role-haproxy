@@ -1,55 +1,44 @@
 ---
-# https://haproxy.debian.net/#distribution=Ubuntu&release=noble&version=2.9
-- name: Block install
-  tags: install
-  block:
-    - name: Set unsupported if HAProxy version is unsupported OS
-      ansible.builtin.set_fact:
-        haproxy_unsupported: true
-      when:
-        - (haproxy_major_version | default(__haproxy_major_version)) == "3.1"
-        - ansible_distribution == "Ubuntu"
-        - ansible_distribution_version is version('24.04', '<')
+# https://haproxy.debian.net/#distribution=Ubuntu
+- name: Check if Ubuntu version is supported
+  ansible.builtin.set_fact:
+    ubuntu_unsupported: true
+  when: >
+    ansible_facts['distribution_release'] not in ['focal', 'jammy', 'noble']
 
-    - name: Set unsupported condition if Ubuntu < 20.04
-      ansible.builtin.set_fact:
-        ubuntu_unsupported: true
-      when:
-        - ansible_distribution == "Ubuntu"
-        - ansible_distribution_version is version('20.04', '<')
+- name: Check if HAProxy version is supported
+  ansible.builtin.set_fact:
+    haproxy_unsupported: true
+  when: >
+    (haproxy_major_version is version('3.1', '>=') and ansible_facts['distribution_version'] is version('24.04', '<'))
 
-    - name: Show warning if Ubuntu version unsupported
-      ansible.builtin.debug:
-        msg: "Playbook is not supported on {{ ansible_distribution }} {{ ansible_distribution_version }}"
-      when: ubuntu_unsupported | default(false)
+- name: Fail if Ubuntu version is not supported
+  ansible.builtin.fail:
+    msg: "Ubuntu {{ ansible_facts['distribution_release'] }} is not supported for HAProxy"
+  when: ubuntu_unsupported
 
-    - name: End play if Ubuntu version is unsupported
-      ansible.builtin.meta: end_play
-      when: ubuntu_unsupported | default(false)
+- name: Fail if HAProxy version is not supported
+  ansible.builtin.fail:
+    msg: "HAProxy {{ haproxy_major_version }} is not supported on Ubuntu {{ ansible_facts['distribution_release'] }}"
+  when: haproxy_unsupported
 
-    - name: Show warning if HAProxy version is unsupported
-      ansible.builtin.debug:
-        msg: "HAProxy {{ haproxy_major_version }} is not supported on {{ ansible_distribution }} {{ ansible_distribution_version }}"
-      when: haproxy_unsupported | default(false)
+- name: Install software-properties-common
+  ansible.builtin.apt:
+    name:
+      - software-properties-common
+      - gnupg
+      - dirmngr
+    update_cache: true
+    install_recommends: false
 
-    - name: End play if HAProxy version is unsupported
-      ansible.builtin.meta: end_play
-      when: haproxy_unsupported | default(false)
+- name: Add HAProxy repository
+  ansible.builtin.apt_repository:
+    repo: "{{ haproxy_repository }}"
+    state: present
+    update_cache: true
 
-    - name: Install software-properties-common
-      ansible.builtin.apt:
-        name:
-          - software-properties-common
-          - gnupg
-          - dirmngr
-        update_cache: true
-        install_recommends: false
-
-    - name: Add haproxy stable repository from PPA
-      ansible.builtin.apt_repository:
-        repo: "{{ haproxy_repository | default(__haproxy_repository) }}"
-
-    - name: Install haproxy
-      ansible.builtin.apt:
-        name: haproxy={{ haproxy_version | default(__haproxy_version) }}
-        update_cache: true
+- name: Install HAProxy
+  ansible.builtin.apt:
+    name: "haproxy={{ haproxy_version }}"
+    state: present
+    update_cache: true

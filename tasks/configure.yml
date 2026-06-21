@@ -2,26 +2,32 @@
 - name: Block configure
   tags: configure
   block:
-    - name: Initialize merged_haproxy_conf
-      ansible.builtin.set_fact:
-        merged_haproxy_conf: "{{ __haproxy_config }}"
-
-    - name: Merge haproxy_config into merged_haproxy_conf
-      ansible.builtin.set_fact:
-        merged_haproxy_conf: >-
-          {{
-            merged_haproxy_conf | map('combine',(haproxy_config | default({})) | selectattr('name', 'equalto', item.name) | first | default({})
-            ) | list
-          }}
-      loop: "{{ merged_haproxy_conf }}"
-      loop_control:
-        loop_var: item
-
-    - name: Upload config haproxy.cfg
-      ansible.builtin.template:
-        src: templates/haproxy.cfg.j2
-        dest: "{{ haproxy_cfg_file | default(__haproxy_cfg_file) }}"
+    - name: Upload custom haproxy.cfg
+      ansible.builtin.copy:
+        src: "{{ haproxy_custom_config_file }}"
+        dest: "{{ haproxy_cfg_file }}"
         owner: root
         group: root
         mode: '0644'
-      notify: (Handler - HAProxy Config) Run HAProxy
+      when: haproxy_custom_config_file is defined and haproxy_custom_config_file | length > 0
+      notify: 
+        - Validate HAProxy configuration
+        - Restart HAProxy
+
+    - name: Block template generate
+      when: haproxy_custom_config_file is not defined or haproxy_custom_config_file | length == 0
+      block:
+        - name: Initialize merged_haproxy_conf
+          ansible.builtin.set_fact:
+            merged_haproxy_conf: "{{ haproxy_config }}"
+
+        - name: Upload config haproxy.cfg
+          ansible.builtin.template:
+            src: templates/haproxy.cfg.j2
+            dest: "{{ haproxy_cfg_file }}"
+            owner: root
+            group: root
+            mode: '0644'
+          notify: 
+            - Validate HAProxy configuration
+            - Restart HAProxy

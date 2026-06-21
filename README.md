@@ -8,14 +8,13 @@ Ansible role for installing and configuring HAProxy - a high-performance load ba
 ## Requirements
 
 - Ansible 2.9 or higher
-- Ubuntu 20.04 (Focal), 22.04 (Jammy), 24.04 (Noble)
-- Debian 10 (Buster), 11 (Bullseye), 12 (Bookworm)
+- Ubuntu 20.04 (Focal), 22.04 (Jammy), 24.04 (Noble) and above
 
 ## Supported HAProxy Versions
 
 - 2.9.x (Focal 20.04, Jammy 22.04, Noble 24.04)
 - 3.0.x (Focal 20.04, Jammy 22.04, Noble 24.04)
-- 3.1.x (Noble 24.04)
+- 3.1.x and higher (Noble 24.04 and above)
 
 ## Role Variables
 
@@ -24,7 +23,10 @@ Main role variables are defined in `defaults/main.yml`:
 ```yaml
 # HAProxy version
 haproxy_major_version: "2.9"
-haproxy_version: 2.9.*
+haproxy_version: "2.9.*"
+
+# Path to a custom HAProxy configuration file
+haproxy_custom_config_file: ""
 
 # HAProxy configuration
 haproxy_config:
@@ -82,6 +84,16 @@ haproxy_config:
               - timeout: 30s
             user: haproxy
             group: haproxy
+```
+
+### Installation with Custom Configuration File
+
+```yaml
+- hosts: haproxy_servers
+  roles:
+    - role: pastir.haproxy
+      vars:
+        haproxy_custom_config_file: "files/my_custom_haproxy.cfg"
 ```
 
 ## Tags

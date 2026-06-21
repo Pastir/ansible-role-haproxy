@@ -1,31 +1,16 @@
 ---
-- name: (Handler - HAProxy Config) Validate haproxy.cfg syntax
+- name: Validate HAProxy configuration
   ansible.builtin.command:
-    cmd: haproxy -c -f "{{ haproxy_cfg_file | default(__haproxy_cfg_file) }}"
+    cmd: haproxy -c -f "{{ haproxy_cfg_file }}"
   register: haproxy_validate
   changed_when: false
-  failed_when: false
-  ignore_errors: true
-  listen: (Handler - HAProxy Config) Run HAProxy
 
-- name: (Handler - HAProxy Config) Print validation error
-  ansible.builtin.debug:
-    msg: |
-      HAProxy configuration validation failed!
-      Errors:
-      {{ haproxy_validate.stderr_lines | default('No error output.') }}
-  when: haproxy_validate.rc is defined and haproxy_validate.rc != 0
-  listen: (Handler - HAProxy Config) Run HAProxy
-
-- name: (Handler - HAProxy Config) Fail if validation error
-  ansible.builtin.fail:
-    msg: "Aborting because HAProxy configuration validation failed."
-  when: haproxy_validate.rc is defined and haproxy_validate.rc != 0
-  listen: (Handler - HAProxy Config) Run HAProxy
-
-- name: (Handler - HAProxy Config) Restart HAProxy service
+- name: Restart HAProxy
   ansible.builtin.service:
     name: haproxy
     state: restarted
-  when: haproxy_validate.rc is defined and haproxy_validate.rc == 0
-  listen: (Handler - HAProxy Config) Run HAProxy
+
+- name: Show HAProxy validation errors
+  ansible.builtin.debug:
+    msg: "{{ haproxy_validate.stderr_lines }}"
+  when: haproxy_validate.stderr_lines | length > 0

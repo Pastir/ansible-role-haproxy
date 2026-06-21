@@ -1,7 +1,7 @@
 ---
 # Include variables based on the distribution
-- name: Include task for {{ ansible_distribution }}
-  ansible.builtin.include_tasks: "{{ ansible_distribution }}.yml"
+- name: Include task for {{ ansible_facts['distribution'] }}
+  ansible.builtin.include_tasks: "{{ ansible_facts['distribution'] }}.yml"
   tags: install
 
 - name: Include task configure haproxy config file
