@@ -1,44 +1,54 @@
 ---
-# https://haproxy.debian.net/#distribution=Ubuntu
+# https://www.haproxy.com/downloads
 - name: Check if Ubuntu version is supported
   ansible.builtin.set_fact:
     ubuntu_unsupported: true
   when: >
-    ansible_facts['distribution_release'] not in ['focal', 'jammy', 'noble']
-
-- name: Check if HAProxy version is supported
-  ansible.builtin.set_fact:
-    haproxy_unsupported: true
-  when: >
-    (haproxy_major_version is version('3.1', '>=') and ansible_facts['distribution_version'] is version('24.04', '<'))
+    ansible_facts['distribution_release'] not in haproxy_supported_versions
 
 - name: Fail if Ubuntu version is not supported
   ansible.builtin.fail:
     msg: "Ubuntu {{ ansible_facts['distribution_release'] }} is not supported for HAProxy"
   when: ubuntu_unsupported
 
+- name: Check if HAProxy version is supported
+  ansible.builtin.set_fact:
+    haproxy_unsupported: true
+  when: >
+    haproxy_major_version not in haproxy_supported_versions[ansible_facts['distribution_release']]
+
 - name: Fail if HAProxy version is not supported
   ansible.builtin.fail:
-    msg: "HAProxy {{ haproxy_major_version }} is not supported on Ubuntu {{ ansible_facts['distribution_release'] }}"
+    msg: >-
+      HAProxy {{ haproxy_major_version }} is not supported on Ubuntu
+      {{ ansible_facts['distribution_release'] }}. Supported versions:
+      {{ haproxy_supported_versions[ansible_facts['distribution_release']] }}
   when: haproxy_unsupported
 
-- name: Install software-properties-common
-  ansible.builtin.apt:
-    name:
-      - software-properties-common
-      - gnupg
-      - dirmngr
-    update_cache: true
-    install_recommends: false
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /usr/share/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download HAProxy repository signing key
+  ansible.builtin.get_url:
+    url: "{{ haproxy_gpg_key_url }}"
+    dest: "{{ haproxy_gpg_key_path }}"
+    mode: '0644'
 
 - name: Add HAProxy repository
   ansible.builtin.apt_repository:
-    repo: "{{ haproxy_repository }}"
+    repo: >-
+      deb [signed-by={{ haproxy_gpg_key_path }}]
+      https://www.haproxy.com/download/haproxy/performance/ubuntu/ha{{ haproxy_major_version | replace('.', '') }}
+      {{ ansible_facts['distribution_release'] }} main
+    filename: haproxy
     state: present
     update_cache: true
 
 - name: Install HAProxy
   ansible.builtin.apt:
-    name: "haproxy={{ haproxy_version }}"
+    name: "haproxy-awslc={{ haproxy_version }}"
     state: present
     update_cache: true

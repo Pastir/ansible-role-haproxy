@@ -1,18 +1,25 @@
 ---
-# apt-get install haproxy=2.9.\*
-# You will get the latest release of HAProxy 2.9.
+# apt-get install haproxy-awslc=3.4.\*
+# You will get the latest release of HAProxy 3.4.
 # You will automatically get updates for this major version.
-# support major version
-# 2.9 (Focal 20.04), (Jammy 22.04), (Noble 24.04)
-# 3.0 (Focal 20.04), (Jammy 22.04), (Noble 24.04)
-# 3.1 (Noble 24.04)
+# Packages are served from the official HAProxy Technologies "performance"
+# APT repository (https://www.haproxy.com/downloads), which ships the
+# haproxy-awslc build (linked against AWS-LC instead of OpenSSL) — it
+# provides/conflicts with the plain haproxy package. Supported major version
+# per Ubuntu release is defined in vars/main.yml (haproxy_supported_versions):
+# jammy (22.04): 3.3, 3.4
+# noble (24.04): 3.2, 3.3, 3.4
+# resolute (26.04): 3.3, 3.4
 
 # HAProxy version configuration
-haproxy_major_version: "2.9"
-haproxy_version: "2.9.*"
-haproxy_repository: "ppa:vbernat/haproxy-{{ haproxy_major_version }}"
+haproxy_major_version: "3.4"
+haproxy_version: "3.4.*"
 haproxy_cfg_file: "/etc/haproxy/haproxy.cfg"
 haproxy_custom_config_file: ""
+
+# Official HAProxy Technologies APT repository signing key
+haproxy_gpg_key_url: "https://pks.haproxy.com/linux/community/RPM-GPG-KEY-HAProxy"
+haproxy_gpg_key_path: "/usr/share/keyrings/HAPROXY-key-community.asc"
 
 # Ubuntu specific variables
 ubuntu_unsupported: false

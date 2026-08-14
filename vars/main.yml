@@ -1,1 +1,7 @@
 ---
+# Supported HAProxy major versions per Ubuntu release, driven by what
+# https://www.haproxy.com/downloads actually publishes for each distro suite.
+haproxy_supported_versions:
+  jammy: ["3.3", "3.4"]
+  noble: ["3.2", "3.3", "3.4"]
+  resolute: ["3.3", "3.4"]

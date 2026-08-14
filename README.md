@@ -8,13 +8,19 @@ Ansible role for installing and configuring HAProxy - a high-performance load ba
 ## Requirements
 
 - Ansible 2.9 or higher
-- Ubuntu 20.04 (Focal), 22.04 (Jammy), 24.04 (Noble) and above
+- Ubuntu 22.04 (Jammy), 24.04 (Noble), 26.04 (Resolute)
+
+Packages are installed from the official HAProxy Technologies "performance"
+APT repository (https://www.haproxy.com/downloads), not the vbernat PPA.
+That repository ships the `haproxy-awslc` build (linked against AWS-LC
+instead of OpenSSL), which provides/conflicts with the plain `haproxy`
+package, so this role installs `haproxy-awslc`.
 
 ## Supported HAProxy Versions
 
-- 2.9.x (Focal 20.04, Jammy 22.04, Noble 24.04)
-- 3.0.x (Focal 20.04, Jammy 22.04, Noble 24.04)
-- 3.1.x and higher (Noble 24.04 and above)
+- Jammy (22.04): 3.3.x, 3.4.x
+- Noble (24.04): 3.2.x, 3.3.x, 3.4.x
+- Resolute (26.04): 3.3.x, 3.4.x
 
 ## Role Variables
 
@@ -22,8 +28,8 @@ Main role variables are defined in `defaults/main.yml`:
 
 ```yaml
 # HAProxy version
-haproxy_major_version: "2.9"
-haproxy_version: "2.9.*"
+haproxy_major_version: "3.4"
+haproxy_version: "3.4.*"
 
 # Path to a custom HAProxy configuration file
 haproxy_custom_config_file: ""
@@ -71,8 +77,8 @@ haproxy_config:
   roles:
     - role: pastir.haproxy
       vars:
-        haproxy_major_version: "3.0"
-        haproxy_version: 3.0.*
+        haproxy_major_version: "3.2"
+        haproxy_version: 3.2.*
         haproxy_config:
           - section: global
             log:
