@@ -1,16 +1,6 @@
 ---
-- name: Validate HAProxy configuration
-  ansible.builtin.command:
-    cmd: haproxy -c -f "{{ haproxy_cfg_file }}"
-  register: haproxy_validate
-  changed_when: false
-
-- name: Restart HAProxy
-  ansible.builtin.service:
+# Hitless reload (master-worker): existing connections are not dropped.
+- name: Reload HAProxy
+  ansible.builtin.systemd_service:
     name: haproxy
-    state: restarted
-
-- name: Show HAProxy validation errors
-  ansible.builtin.debug:
-    msg: "{{ haproxy_validate.stderr_lines }}"
-  when: haproxy_validate.stderr_lines | length > 0
+    state: reloaded

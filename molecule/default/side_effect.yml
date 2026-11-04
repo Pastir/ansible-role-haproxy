@@ -1,0 +1,56 @@
+---
+# 1. A config change is applied by a hitless reload: the master process keeps its PID.
+# 2. An invalid config is rejected and the running file stays untouched.
+- name: Reload and validation
+  hosts: all
+  become: true
+  tasks:
+    - name: Remember master PID
+      ansible.builtin.systemd_service:
+        name: haproxy
+      register: __pid_before
+
+    - name: Apply a changed config
+      ansible.builtin.include_role:
+        name: pastir.haproxy
+      vars:
+        haproxy_config:
+          - section: global
+            log: /dev/log local0
+            user: haproxy
+            group: haproxy
+            stats:
+              - socket: /run/haproxy/admin.sock mode 660 level admin
+          - section: defaults
+            mode: tcp
+            timeout:
+              - connect 5s
+              - client 1m
+              - server 1m
+          - section: listen changed
+            bind: 127.0.0.1:9999
+            server: s1 127.0.0.1:22
+
+    - name: Master PID is unchanged
+      ansible.builtin.systemd_service:
+        name: haproxy
+      register: __pid_after
+      failed_when: __pid_after.status.MainPID != __pid_before.status.MainPID
+
+    - name: Try an invalid config
+      block:
+        - name: Render invalid config
+          ansible.builtin.include_role:
+            name: pastir.haproxy
+          vars:
+            haproxy_config:
+              - section: global
+                definitely-not-a-directive: 1
+
+        - name: Must not get here
+          ansible.builtin.fail:
+            msg: invalid config was accepted
+      rescue:
+        - name: Running config still has the valid listener
+          ansible.builtin.command: grep -q 'listen changed' /etc/haproxy/haproxy.cfg
+          changed_when: false

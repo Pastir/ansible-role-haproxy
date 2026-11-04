@@ -1,33 +1,23 @@
 ---
-- name: Block configure
-  tags: configure
-  block:
-    - name: Upload custom haproxy.cfg
-      ansible.builtin.copy:
-        src: "{{ haproxy_custom_config_file }}"
-        dest: "{{ haproxy_cfg_file }}"
-        owner: root
-        group: root
-        mode: '0644'
-      when: haproxy_custom_config_file is defined and haproxy_custom_config_file | length > 0
-      notify: 
-        - Validate HAProxy configuration
-        - Restart HAProxy
+# The file is validated before it replaces the current one: a broken config never lands on disk.
+- name: Upload custom haproxy.cfg
+  ansible.builtin.copy:
+    src: "{{ haproxy_custom_config_file }}"
+    dest: "{{ haproxy_cfg_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: haproxy -c -f %s
+  when: haproxy_custom_config_file | length > 0
+  notify: Reload HAProxy
 
-    - name: Block template generate
-      when: haproxy_custom_config_file is not defined or haproxy_custom_config_file | length == 0
-      block:
-        - name: Initialize merged_haproxy_conf
-          ansible.builtin.set_fact:
-            merged_haproxy_conf: "{{ haproxy_config }}"
-
-        - name: Upload config haproxy.cfg
-          ansible.builtin.template:
-            src: templates/haproxy.cfg.j2
-            dest: "{{ haproxy_cfg_file }}"
-            owner: root
-            group: root
-            mode: '0644'
-          notify: 
-            - Validate HAProxy configuration
-            - Restart HAProxy
+- name: Render haproxy.cfg
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ haproxy_cfg_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: haproxy -c -f %s
+  when: haproxy_custom_config_file | length == 0
+  notify: Reload HAProxy

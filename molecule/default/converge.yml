@@ -2,7 +2,38 @@
 - name: Converge
   hosts: all
   become: true
-
+  vars:
+    __molecule_frontends:
+      - section: frontend prometheus
+        bind: :8405
+        mode: http
+        http-request: use-service prometheus-exporter if { path /metrics }
+        raw: no log
+      - section: listen health
+        bind: 127.0.0.1:8888
+        mode: http
+        monitor-uri: /health
+      - section: listen pg_primary
+        bind: 127.0.0.1:7432
+        mode: tcp
+        option: httpchk OPTIONS /
+        http-check: expect status 200
+        default-server: inter 10s fall 3 rise 2 on-marked-down shutdown-sessions
+        server:
+          - node1 127.0.0.1:5432 maxconn 800 check port 8008
+          - node2 127.0.0.2:5432 maxconn 800 check port 8008
+        raw:
+          - "# raw lines are kept as they are"
   roles:
     - role: pastir.haproxy
+      vars:
+        haproxy_config: "{{ __haproxy_defaults_config + __molecule_frontends }}"
+  pre_tasks:
+    - name: Load role defaults to extend them
+      ansible.builtin.include_vars:
+        file: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+        name: __haproxy_role_defaults
 
+    - name: Keep default global/defaults sections
+      ansible.builtin.set_fact:
+        __haproxy_defaults_config: "{{ __haproxy_role_defaults.haproxy_config }}"

@@ -1,0 +1,29 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Pinned version installed and held
+      ansible.builtin.shell: |
+        set -o pipefail
+        dpkg-query -W -f='${Version}' haproxy-awslc | grep -q '^3\.4\.7-'
+        apt-mark showhold | grep -qx haproxy-awslc
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Config is valid
+      ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
+      changed_when: false
+
+    - name: Service is active
+      ansible.builtin.systemd_service:
+        name: haproxy
+      register: __svc
+      failed_when: __svc.status.ActiveState != 'active'
+
+    - name: Listener from side effect is up
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 9999
+        timeout: 10

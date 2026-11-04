@@ -1,25 +1,20 @@
 ---
 galaxy_info:
   author: Pastir Ivan
-  description: "Install and configure HAProxy — The Reliable, High-Performance TCP/HTTP Load Balancer"
   role_name: haproxy
-
+  namespace: pastir
+  description: "Install HAProxy (haproxy-awslc) from the official HAProxy Technologies repository and manage haproxy.cfg"
   license: MIT
-
-  min_ansible_version: '2.9'
-
+  min_ansible_version: "2.16"
   platforms:
     - name: Ubuntu
       versions:
         - jammy
         - noble
         - resolute
-
   galaxy_tags:
-    - reliable
-    - highperformance
+    - haproxy
+    - loadbalancer
     - tcploadbalancer
     - httploadbalancer
-    - haproxy
-
 dependencies: []

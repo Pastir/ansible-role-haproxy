@@ -1,9 +1,15 @@
 ---
-# Include variables based on the distribution
-- name: Include task for {{ ansible_facts['distribution'] }}
+- name: Install HAProxy
   ansible.builtin.include_tasks: "{{ ansible_facts['distribution'] }}.yml"
-  tags: install
+  tags: [haproxy, install, haproxy_install]
 
-- name: Include task configure haproxy config file
-  ansible.builtin.include_tasks: "configure.yml"
-  tags: configure
+- name: Configure HAProxy
+  ansible.builtin.include_tasks: configure.yml
+  tags: [haproxy, configure, haproxy_config]
+
+- name: Enable and start HAProxy
+  ansible.builtin.systemd_service:
+    name: haproxy
+    enabled: "{{ haproxy_service_enabled }}"
+    state: started
+  tags: [haproxy, configure, haproxy_config]

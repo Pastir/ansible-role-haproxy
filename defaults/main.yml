@@ -1,58 +1,56 @@
 ---
-# apt-get install haproxy-awslc=3.4.\*
-# You will get the latest release of HAProxy 3.4.
-# You will automatically get updates for this major version.
-# Packages are served from the official HAProxy Technologies "performance"
-# APT repository (https://www.haproxy.com/downloads), which ships the
-# haproxy-awslc build (linked against AWS-LC instead of OpenSSL) — it
-# provides/conflicts with the plain haproxy package. Supported major version
-# per Ubuntu release is defined in vars/main.yml (haproxy_supported_versions):
-# jammy (22.04): 3.3, 3.4
-# noble (24.04): 3.2, 3.3, 3.4
-# resolute (26.04): 3.3, 3.4
+# Packages come from the official HAProxy Technologies "performance" APT repository
+# (https://www.haproxy.com/downloads). It ships the haproxy-awslc build (AWS-LC instead of
+# OpenSSL), which provides/conflicts with the plain haproxy package.
+# Supported major versions per Ubuntu release: see vars/main.yml (haproxy_supported_versions).
 
-# HAProxy version configuration
+# Major version selects the repository suite.
 haproxy_major_version: "3.4"
-haproxy_version: "3.4.*"
-haproxy_cfg_file: "/etc/haproxy/haproxy.cfg"
-haproxy_custom_config_file: ""
+# Exact version to install and hold, e.g. "3.4.7". Empty -> latest of the major version.
+haproxy_version: "3.4.7"
+haproxy_package: haproxy-awslc
+# apt-mark hold the package so "apt upgrade" does not change it.
+haproxy_hold: true
 
-# Official HAProxy Technologies APT repository signing key
+haproxy_repo_enabled: true
 haproxy_gpg_key_url: "https://pks.haproxy.com/linux/community/RPM-GPG-KEY-HAProxy"
 haproxy_gpg_key_path: "/usr/share/keyrings/HAPROXY-key-community.asc"
 
-# Ubuntu specific variables
-ubuntu_unsupported: false
-haproxy_unsupported: false
+haproxy_cfg_file: "/etc/haproxy/haproxy.cfg"
+# Path (on the controller) of a complete haproxy.cfg. Non-empty -> haproxy_config is ignored.
+haproxy_custom_config_file: ""
 
-# Configuration section, docs https://docs.haproxy.org/2.9/configuration.html
+haproxy_service_enabled: true
+
+# Configuration rendered by templates/haproxy.cfg.j2: a list of sections.
+# Each section is a dict: "section" is the header line, every other key is a directive:
+#   key: value          -> "key value"
+#   key: [v1, v2]       -> one "key vN" line per item
+#   key: [{sub: val}]   -> "key sub val" (e.g. stats socket ..., stats timeout ...)
+#   key: null / ""      -> bare "key"
+#   raw: [lines]        -> lines copied as they are (comments, ordering-sensitive directives)
+# Docs: https://docs.haproxy.org/3.4/configuration.html
 haproxy_config:
   - section: global
     log:
-      - /dev/log    local0
-      - /dev/log    local1 notice
+      - /dev/log local0
+      - /dev/log local1 notice
     chroot: /var/lib/haproxy
     stats:
       - socket: /run/haproxy/admin.sock mode 660 level admin
       - timeout: 30s
     user: haproxy
     group: haproxy
-    # SSL settings
-    ssl-default-bind-ciphers: |
-      ECDHE-ECDSA-AES128-GCM-SHA256:
-      ECDHE-RSA-AES128-GCM-SHA256:
-      ECDHE-ECDSA-AES256-GCM-SHA384:
-      ECDHE-RSA-AES256-GCM-SHA384:
-      ECDHE-ECDSA-CHACHA20-POLY1305:
-      ECDHE-RSA-CHACHA20-POLY1305:
-      DHE-RSA-AES128-GCM-SHA256:
-      DHE-RSA-AES256-GCM-SHA384
+    daemon:
+    ca-base: /etc/ssl/certs
+    crt-base: /etc/ssl/private
+    ssl-default-bind-ciphers: >-
+      ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
     ssl-default-bind-ciphersuites: TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
     ssl-default-bind-options: ssl-min-ver TLSv1.2 no-tls-tickets
 
   - section: defaults
-    log global:
-    # { tcp|http|log }
+    log: global
     mode: http
     option:
       - httplog

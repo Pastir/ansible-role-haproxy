@@ -1,26 +1,30 @@
 ---
 dependency:
   name: galaxy
-  options:
-    requirements-file: requirements.yml
-
+  enabled: false
 driver:
-  name: docker
-
+  name: podman
 platforms:
-  - name: ubuntu-jammy
-    image: geerlingguy/docker-ubuntu2204-ansible:latest
-    pre_build_image: true
-
-  - name: ubuntu-noble
-    image: geerlingguy/docker-ubuntu2404-ansible:latest
-    pre_build_image: true
-
+  - name: haproxy-noble
+    image: docker.io/library/ubuntu:24.04
+    dockerfile: Dockerfile.j2
+    command: /lib/systemd/systemd
+    systemd: always
+  - name: haproxy-resolute
+    image: docker.io/library/ubuntu:26.04
+    dockerfile: Dockerfile.j2
+    command: /lib/systemd/systemd
+    systemd: always
 provisioner:
   name: ansible
-  lint: |
-    ansible-lint
-    yamllint .
-
+scenario:
+  test_sequence:
+    - destroy
+    - create
+    - converge
+    - idempotence
+    - side_effect
+    - verify
+    - destroy
 verifier:
   name: ansible

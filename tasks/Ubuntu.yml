@@ -1,54 +1,53 @@
 ---
 # https://www.haproxy.com/downloads
-- name: Check if Ubuntu version is supported
-  ansible.builtin.set_fact:
-    ubuntu_unsupported: true
-  when: >
-    ansible_facts['distribution_release'] not in haproxy_supported_versions
-
-- name: Fail if Ubuntu version is not supported
-  ansible.builtin.fail:
-    msg: "Ubuntu {{ ansible_facts['distribution_release'] }} is not supported for HAProxy"
-  when: ubuntu_unsupported
-
-- name: Check if HAProxy version is supported
-  ansible.builtin.set_fact:
-    haproxy_unsupported: true
-  when: >
-    haproxy_major_version not in haproxy_supported_versions[ansible_facts['distribution_release']]
-
-- name: Fail if HAProxy version is not supported
-  ansible.builtin.fail:
-    msg: >-
-      HAProxy {{ haproxy_major_version }} is not supported on Ubuntu
-      {{ ansible_facts['distribution_release'] }}. Supported versions:
-      {{ haproxy_supported_versions[ansible_facts['distribution_release']] }}
-  when: haproxy_unsupported
-
-- name: Create keyrings directory
-  ansible.builtin.file:
-    path: /usr/share/keyrings
-    state: directory
-    mode: '0755'
-
-- name: Download HAProxy repository signing key
-  ansible.builtin.get_url:
-    url: "{{ haproxy_gpg_key_url }}"
-    dest: "{{ haproxy_gpg_key_path }}"
-    mode: '0644'
+- name: Check that the Ubuntu release and HAProxy version are supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution_release'] in haproxy_supported_versions
+      - haproxy_major_version in haproxy_supported_versions[ansible_facts['distribution_release']] | default([])
+      - haproxy_version | length == 0 or haproxy_version is match(haproxy_major_version | regex_escape ~ '\.')
+    fail_msg: >-
+      HAProxy {{ haproxy_major_version }} ({{ haproxy_version }}) is not supported on Ubuntu
+      {{ ansible_facts['distribution_release'] }}. Supported: {{ haproxy_supported_versions }}.
+      haproxy_version must belong to haproxy_major_version.
+    quiet: true
 
 - name: Add HAProxy repository
-  ansible.builtin.apt_repository:
-    repo: >-
-      deb [signed-by={{ haproxy_gpg_key_path }}]
-      https://www.haproxy.com/download/haproxy/performance/ubuntu/ha{{ haproxy_major_version | replace('.', '') }}
-      {{ ansible_facts['distribution_release'] }} main
-    filename: haproxy
-    state: present
-    update_cache: true
+  when: haproxy_repo_enabled
+  block:
+    - name: Download HAProxy repository signing key
+      ansible.builtin.get_url:
+        url: "{{ haproxy_gpg_key_url }}"
+        dest: "{{ haproxy_gpg_key_path }}"
+        mode: "0644"
+
+    # Older versions of this role created haproxy.list; keep a single source.
+    - name: Remove legacy list-style source
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/haproxy.list
+        state: absent
+
+    - name: Add HAProxy apt source
+      ansible.builtin.deb822_repository:
+        name: haproxy
+        types: [deb]
+        uris: ["https://www.haproxy.com/download/haproxy/performance/ubuntu/ha{{ haproxy_major_version | replace('.', '') }}"]
+        suites: ["{{ ansible_facts['distribution_release'] }}"]
+        components: [main]
+        signed_by: "{{ haproxy_gpg_key_path }}"
+        install_python_debian: true
+      register: __haproxy_repo
 
 - name: Install HAProxy
   ansible.builtin.apt:
-    name: "haproxy-awslc={{ haproxy_version }}"
+    name: "{{ haproxy_package }}{{ ('=' ~ haproxy_version ~ '-*') if haproxy_version else '' }}"
     state: present
     update_cache: true
+    cache_valid_time: "{{ 0 if (__haproxy_repo is defined and __haproxy_repo is changed) else 3600 }}"
+    allow_change_held_packages: true
+
+- name: Hold HAProxy package
+  ansible.builtin.dpkg_selections:
+    name: "{{ haproxy_package }}"
+    selection: hold
+  when: haproxy_hold and not ansible_check_mode

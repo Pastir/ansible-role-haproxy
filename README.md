@@ -1,116 +1,98 @@
-# Ansible Role: HAProxy
+# Ansible Role: pastir.haproxy
 
-[![Build Status](https://travis-ci.org/pastir/haproxy.svg?branch=master)](https://travis-ci.org/pastir/haproxy)
-[![License](https://img.shields.io/badge/license-MIT%20License-brightgreen.svg)](https://opensource.org/licenses/MIT)
+Installs HAProxy from the official HAProxy Technologies "performance" APT repository and manages `haproxy.cfg`.
 
-Ansible role for installing and configuring HAProxy - a high-performance load balancer and proxy server.
+- The package is `haproxy-awslc` (built against AWS-LC). It provides and conflicts with the plain `haproxy` package.
+- The exact version is pinned and held (`haproxy_version`).
+- The config is **validated before it is written** (`haproxy -c`), so a broken config never replaces the
+  running one.
+- Changes are applied with a **hitless reload**, so existing connections are not dropped.
 
 ## Requirements
 
-- Ansible 2.9 or higher
-- Ubuntu 22.04 (Jammy), 24.04 (Noble), 26.04 (Resolute)
+- ansible-core >= 2.16
+- Ubuntu 22.04 (jammy), 24.04 (noble), 26.04 (resolute)
 
-Packages are installed from the official HAProxy Technologies "performance"
-APT repository (https://www.haproxy.com/downloads), not the vbernat PPA.
-That repository ships the `haproxy-awslc` build (linked against AWS-LC
-instead of OpenSSL), which provides/conflicts with the plain `haproxy`
-package, so this role installs `haproxy-awslc`.
+| Release | Major versions |
+|---|---|
+| jammy | 3.3, 3.4 |
+| noble | 3.2, 3.3, 3.4 |
+| resolute | 3.3, 3.4 |
 
-## Supported HAProxy Versions
+## Variables
 
-- Jammy (22.04): 3.3.x, 3.4.x
-- Noble (24.04): 3.2.x, 3.3.x, 3.4.x
-- Resolute (26.04): 3.3.x, 3.4.x
+| Variable | Default | Description |
+|---|---|---|
+| `haproxy_major_version` | `"3.4"` | Selects the repository suite |
+| `haproxy_version` | `"3.4.7"` | Exact version. Empty means the latest of the major version |
+| `haproxy_package` | `haproxy-awslc` | |
+| `haproxy_hold` | `true` | `apt-mark hold` |
+| `haproxy_repo_enabled` | `true` | Add the repository |
+| `haproxy_gpg_key_url` / `haproxy_gpg_key_path` | HAProxy key | |
+| `haproxy_cfg_file` | `/etc/haproxy/haproxy.cfg` | |
+| `haproxy_custom_config_file` | `""` | Complete config file from the controller. If set, the template is not used |
+| `haproxy_service_enabled` | `true` | |
+| `haproxy_config` | global + defaults | Structured config, see below |
 
-## Role Variables
+### `haproxy_config` format
 
-Main role variables are defined in `defaults/main.yml`:
+A list of sections. `section` is the header line. Every other key is a directive:
 
 ```yaml
-# HAProxy version
-haproxy_major_version: "3.4"
-haproxy_version: "3.4.*"
-
-# Path to a custom HAProxy configuration file
-haproxy_custom_config_file: ""
-
-# HAProxy configuration
 haproxy_config:
   - section: global
-    log:
-      - /dev/log    local0
-      - /dev/log    local1 notice
-    chroot: /var/lib/haproxy
+    log: [/dev/log local0, /dev/log local1 notice]      # list   -> one line per item
     stats:
-      - socket: /run/haproxy/admin.sock mode 660 level admin
+      - socket: /run/haproxy/admin.sock mode 660 level admin   # dict item -> "stats socket ..."
       - timeout: 30s
-    user: haproxy
-    group: haproxy
-    # SSL settings
-    ssl-default-bind-ciphers: |
-      ECDHE-ECDSA-AES128-GCM-SHA256:
-      ECDHE-RSA-AES128-GCM-SHA256:
-      ECDHE-ECDSA-AES256-GCM-SHA384:
-      ECDHE-RSA-AES256-GCM-SHA384:
-      ECDHE-ECDSA-CHACHA20-POLY1305:
-      ECDHE-RSA-CHACHA20-POLY1305:
-      DHE-RSA-AES128-GCM-SHA256:
-      DHE-RSA-AES256-GCM-SHA384
-    ssl-default-bind-ciphersuites: TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
-    ssl-default-bind-options: ssl-min-ver TLSv1.2 no-tls-tickets
+    daemon:                                             # null   -> bare keyword
+  - section: listen pg_primary
+    bind: 127.0.0.1:7432
+    option: httpchk OPTIONS /
+    server:
+      - pg1 10.0.0.1:5432 check port 8008
+      - pg2 10.0.0.2:5432 check port 8008
+    raw:                                                # copied as is
+      - "# comment"
 ```
 
-## Usage
+Overriding `haproxy_config` replaces the default `global` and `defaults` sections entirely. Repeat them in your
+value if you need them. Keys inside a section are rendered in the order you write them.
 
-### Basic Installation
-
-```yaml
-- hosts: haproxy_servers
-  roles:
-    - role: pastir.haproxy
-```
-
-### Installation with Custom Configuration
+## Example
 
 ```yaml
-- hosts: haproxy_servers
+- hosts: haproxy
+  become: true
   roles:
     - role: pastir.haproxy
       vars:
-        haproxy_major_version: "3.2"
-        haproxy_version: 3.2.*
-        haproxy_config:
-          - section: global
-            log:
-              - /dev/log    local0
-              - /dev/log    local1 notice
-            chroot: /var/lib/haproxy
-            stats:
-              - socket: /run/haproxy/admin.sock mode 660 level admin
-              - timeout: 30s
-            user: haproxy
-            group: haproxy
-```
-
-### Installation with Custom Configuration File
-
-```yaml
-- hosts: haproxy_servers
-  roles:
-    - role: pastir.haproxy
-      vars:
-        haproxy_custom_config_file: "files/my_custom_haproxy.cfg"
+        haproxy_version: "3.4.7"
 ```
 
 ## Tags
 
-- `install` - HAProxy installation
-- `configure` - HAProxy configuration
+`haproxy`, `install` / `haproxy_install`, `configure` / `haproxy_config`
+
+## Testing
+
+`molecule test` (podman): Ubuntu 24.04 and 26.04. The test covers idempotence, a reload that keeps the master
+PID, and rejection of an invalid config.
+
+## Installation
+
+```yaml
+# requirements.yml
+roles:
+  - name: pastir.haproxy
+    src: git+git@github.com:Pastir/ansible-role-haproxy.git
+    version: main  # or a tag
+```
+
+```bash
+ansible-galaxy install -r requirements.yml
+```
 
 ## License
 
 MIT
-
-## Author
-
-Role created and maintained by [pastir](https://github.com/pastir)

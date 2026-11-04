@@ -1,0 +1,7 @@
+---
+profile: production
+exclude_paths:
+  - .idea/
+  - molecule/default/Dockerfile.j2
+  - galaxy.yml
+  - CLAUDE.md

@@ -1,17 +1,30 @@
-# {{ ansible_managed | comment(decoration='# ')}}
-{% for it in merged_haproxy_conf %}
+{{ ansible_managed | comment }}
+{% for section in haproxy_config %}
 
-{% for key, val in it.items() %}
-{% if key == "section" %}
-{{ val }}
-{% elif not val %}
-   {{ key }}
-{% elif val is iterable and val is not string %}
-{% for v in val %}
-   {{ key }} {{ v }}
-{% endfor %}
-{% else %}
-   {{ key }} {{ val }}
-{% endif %}
+{{ section.section }}
+{% for key, val in section.items() if key != 'section' %}
+{%   if key == 'raw' %}
+{%     for line in ([val] if val is string else val) %}
+    {{ line }}
+{%     endfor %}
+{%   elif val is none or (val is string and val | length == 0) %}
+    {{ key }}
+{%   elif val is mapping %}
+{%     for sub, subval in val.items() %}
+    {{ key }} {{ sub }}{{ (' ' ~ subval) if subval is not none else '' }}
+{%     endfor %}
+{%   elif val is iterable and val is not string %}
+{%     for item in val %}
+{%       if item is mapping %}
+{%         for sub, subval in item.items() %}
+    {{ key }} {{ sub }}{{ (' ' ~ subval) if subval is not none else '' }}
+{%         endfor %}
+{%       else %}
+    {{ key }} {{ item }}
+{%       endif %}
+{%     endfor %}
+{%   else %}
+    {{ key }} {{ val }}
+{%   endif %}
 {% endfor %}
 {% endfor %}
