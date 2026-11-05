@@ -28,12 +28,14 @@ hitless reload (master PID unchanged) and that an invalid config is rejected wit
 `tasks/main.yml`: `tasks/<Distribution>.yml` (install) → `tasks/configure.yml` → ensure the service is enabled and started.
 
 `tasks/Ubuntu.yml`: asserts the support matrix (`haproxy_supported_versions` in `vars/main.yml`, and
-`haproxy_version` must belong to `haproxy_major_version`). It downloads the signing key, removes a legacy
+`haproxy_version` must belong to `haproxy_major_version`). Then the version guard (`package_facts`; fails unless
+`haproxy_allow_upgrade` when another version or the plain `haproxy` is installed) runs before anything is written. It downloads the signing key, removes a legacy
 `haproxy.list`, adds `haproxy.sources` (deb822) for
 `https://www.haproxy.com/download/haproxy/performance/ubuntu/ha<major-no-dot>`, then installs
 `haproxy-awslc=<haproxy_version>-*` and holds it. The repository ships only `haproxy-awslc` (no plain `haproxy`).
 
-`tasks/configure.yml`: either copies `haproxy_custom_config_file` or renders `templates/haproxy.cfg.j2`. Both use
+`tasks/configure.yml`: either copies `haproxy_custom_config_file` or renders `haproxy_config_template` (default
+`templates/haproxy.cfg.j2`), with `diff: haproxy_config_diff`. Both use
 `validate: haproxy -c -f %s` and notify the single handler `Reload HAProxy` (`state: reloaded`).
 
 `templates/haproxy.cfg.j2` renders `haproxy_config` (a list of sections):

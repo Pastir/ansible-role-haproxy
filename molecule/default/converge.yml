@@ -1,4 +1,91 @@
 ---
+# Version guard (only while the installed version differs from haproxy_version, i.e. on the first
+# converge of the prepared noble host): the default run must fail before touching apt sources,
+# an explicit haproxy_allow_upgrade=true must upgrade and reload.
+- name: Version guard
+  hosts: all
+  become: true
+  vars:
+    __apt_state_cmd: >-
+      set -o pipefail;
+      { ls -la /etc/apt/sources.list.d /etc/apt/preferences.d;
+      sha256sum /etc/apt/sources.list.d/* /usr/share/keyrings/HAPROXY-key-community.asc 2>/dev/null;
+      dpkg-query -W -f='${Package} ${Version} ${Status}\n'; apt-mark showhold; } | sha256sum
+  tasks:
+    - name: Gather installed packages
+      ansible.builtin.package_facts:
+        manager: apt
+
+    - name: Exercise the guard on an outdated host
+      when:
+        - "'haproxy-awslc' in ansible_facts.packages"
+        - ansible_facts.packages['haproxy-awslc'][0].version is not match('3\.4\.7-')
+      block:
+        - name: Snapshot apt sources, keys and packages
+          ansible.builtin.shell: "{{ __apt_state_cmd }}"
+          args:
+            executable: /bin/bash
+          register: __apt_before
+          changed_when: false
+
+        - name: Run the role with defaults
+          block:
+            - name: Apply the role without haproxy_allow_upgrade
+              ansible.builtin.include_role:
+                name: pastir.haproxy
+
+            - name: The role must not get here
+              ansible.builtin.fail:
+                msg: Version guard did not stop the role
+          rescue:
+            - name: The guard is what stopped the role
+              ansible.builtin.assert:
+                that: "'haproxy_allow_upgrade' in ansible_failed_result.msg"
+
+        - name: Snapshot after the refused run
+          ansible.builtin.shell: "{{ __apt_state_cmd }}"
+          args:
+            executable: /bin/bash
+          register: __apt_after
+          changed_when: false
+
+        - name: Apt sources, keys and packages are untouched
+          ansible.builtin.assert:
+            that:
+              - __apt_after.stdout == __apt_before.stdout
+              - "'python3-debian' not in ansible_facts.packages"
+
+        - name: Remember the running master
+          ansible.builtin.systemd_service:
+            name: haproxy
+          register: __old_master
+
+        - name: Upgrade with haproxy_allow_upgrade
+          ansible.builtin.include_role:
+            name: pastir.haproxy
+          vars:
+            haproxy_allow_upgrade: true
+
+        - name: Run handlers
+          ansible.builtin.meta: flush_handlers
+
+        - name: Get master after the upgrade
+          ansible.builtin.systemd_service:
+            name: haproxy
+          register: __new_master
+
+        - name: The running master uses the new binary
+          ansible.builtin.command: readlink /proc/{{ __new_master.status.MainPID }}/exe
+          register: __exe
+          changed_when: false
+          failed_when: >-
+            'deleted' in __exe.stdout or
+            __new_master.status.ActiveState != 'active'
+
+        - name: Show master PIDs
+          ansible.builtin.debug:
+            msg: "master {{ __old_master.status.MainPID }} -> {{ __new_master.status.MainPID }}, exe {{ __exe.stdout }}"
+
 - name: Converge
   hosts: all
   become: true

@@ -11,6 +11,10 @@ haproxy_version: "3.4.7"
 haproxy_package: haproxy-awslc
 # apt-mark hold the package so "apt upgrade" does not change it.
 haproxy_hold: true
+# Allow changing the version of an already installed package (upgrade or downgrade to haproxy_version,
+# or replacing the plain "haproxy" package). With false a host whose installed version differs from
+# haproxy_version fails before any apt source, key or package is touched. A fresh install is not affected.
+haproxy_allow_upgrade: false
 
 haproxy_repo_enabled: true
 haproxy_gpg_key_url: "https://pks.haproxy.com/linux/community/RPM-GPG-KEY-HAProxy"
@@ -19,6 +23,13 @@ haproxy_gpg_key_path: "/usr/share/keyrings/HAPROXY-key-community.asc"
 haproxy_cfg_file: "/etc/haproxy/haproxy.cfg"
 # Path (on the controller) of a complete haproxy.cfg. Non-empty -> haproxy_config is ignored.
 haproxy_custom_config_file: ""
+# Template used to render haproxy.cfg when haproxy_custom_config_file is empty. Set it to your own
+# full haproxy.cfg.j2 (absolute path, or a name found in the playbook's templates/ directory).
+# The result is validated with "haproxy -c" before it is written.
+haproxy_config_template: haproxy.cfg.j2
+# Show the haproxy.cfg diff in --diff mode. Set to false when the config contains secrets
+# ("stats auth", userlist passwords): otherwise they are printed in the diff output.
+haproxy_config_diff: true
 
 haproxy_service_enabled: true
 

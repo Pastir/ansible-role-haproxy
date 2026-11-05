@@ -17,10 +17,13 @@ platforms:
     systemd: always
 provisioner:
   name: ansible
+  options:
+    diff: true
 scenario:
   test_sequence:
     - destroy
     - create
+    - prepare
     - converge
     - idempotence
     - side_effect

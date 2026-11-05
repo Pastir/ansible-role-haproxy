@@ -12,6 +12,10 @@
         executable: /bin/bash
       changed_when: false
 
+    - name: Config comes from the project template
+      ansible.builtin.command: grep -q 'rendered from a project template' /etc/haproxy/haproxy.cfg
+      changed_when: false
+
     - name: Config is valid
       ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
       changed_when: false

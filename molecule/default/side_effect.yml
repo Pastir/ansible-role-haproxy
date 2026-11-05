@@ -1,6 +1,8 @@
 ---
 # 1. A config change is applied by a hitless reload: the master process keeps its PID.
 # 2. An invalid config is rejected and the running file stays untouched.
+# 3. A project template (haproxy_config_template) is rendered; with haproxy_config_diff=false the
+#    userlist password does not show up in the --diff output (molecule runs ansible with --diff).
 - name: Reload and validation
   hosts: all
   become: true
@@ -54,3 +56,11 @@
         - name: Running config still has the valid listener
           ansible.builtin.command: grep -q 'listen changed' /etc/haproxy/haproxy.cfg
           changed_when: false
+
+    - name: Render a project template that contains a secret
+      ansible.builtin.include_role:
+        name: pastir.haproxy
+      vars:
+        haproxy_config_template: "{{ lookup('env', 'MOLECULE_SCENARIO_DIRECTORY') }}/templates/custom-haproxy.cfg.j2"
+        haproxy_config_diff: false
+        __molecule_secret: molecule-dummy-secret-7f3a

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.1.0 — 2026-11
+
+### Added
+- `haproxy_allow_upgrade` (default `false`): an installed `haproxy-awslc` of another version, or the plain
+  `haproxy` package, is not changed implicitly. The guard runs before the key, the apt source, `python3-debian`
+  or packages are touched, so a refused run leaves the host as it was. A fresh install is not affected.
+- `haproxy_config_template`: a project can supply its own full `haproxy.cfg.j2` (still validated with `haproxy -c`).
+- `haproxy_config_diff` (default `true`): set to `false` to keep secrets (`stats auth`, userlists) out of
+  `--diff` output.
+- Molecule: `prepare` installs an older held version from a legacy `haproxy.list` on noble; converge checks the
+  guard and the upgrade, `side_effect` renders a project template with the diff disabled.
+
+### Changed
+- A package version change (with `haproxy_allow_upgrade: true`) notifies `Reload HAProxy`: the master re-executes
+  the new binary without dropping connections. The pinned version may also be a downgrade in that mode.
+- `galaxy.yml` version follows the changelog (2.1.0).
+
 ## 2.0.0 — 2026-11
 
 ### BREAKING

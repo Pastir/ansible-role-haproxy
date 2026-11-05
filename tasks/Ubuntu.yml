@@ -12,6 +12,40 @@
       haproxy_version must belong to haproxy_major_version.
     quiet: true
 
+# The guard runs before anything is written (key, apt source, python3-debian, packages):
+# a refused run leaves the host exactly as it was.
+- name: Gather installed packages
+  ansible.builtin.package_facts:
+    manager: apt
+
+# A version change restarts the HAProxy binary: never do it implicitly on a running host.
+- name: Refuse implicit HAProxy version change
+  ansible.builtin.assert:
+    that:
+      - haproxy_allow_upgrade or
+        ansible_facts.packages[haproxy_package][0].version is match(haproxy_version | regex_escape ~ '-')
+    fail_msg: >-
+      {{ haproxy_package }} {{ ansible_facts.packages[haproxy_package][0].version }} is installed,
+      but {{ haproxy_version }} is required. Run with -e haproxy_allow_upgrade=true in a maintenance window
+      (one node at a time; the new binary is picked up by a hitless reload).
+    quiet: true
+  when:
+    - haproxy_version | length > 0
+    - haproxy_package in ansible_facts.packages
+
+# haproxy-awslc conflicts with the plain haproxy package: installing it removes the running one.
+- name: Refuse implicit replacement of the haproxy package
+  ansible.builtin.assert:
+    that:
+      - haproxy_allow_upgrade
+    fail_msg: >-
+      haproxy {{ ansible_facts.packages['haproxy'][0].version }} is installed and would be replaced by
+      {{ haproxy_package }}. Run with -e haproxy_allow_upgrade=true in a maintenance window.
+    quiet: true
+  when:
+    - haproxy_package != 'haproxy'
+    - "'haproxy' in ansible_facts.packages"
+
 - name: Add HAProxy repository
   when: haproxy_repo_enabled
   block:
@@ -45,6 +79,10 @@
     update_cache: true
     cache_valid_time: "{{ 0 if (__haproxy_repo is defined and __haproxy_repo is changed) else 3600 }}"
     allow_change_held_packages: true
+    # Only an explicitly allowed version change may go down (e.g. back to the pinned version).
+    allow_downgrade: "{{ haproxy_allow_upgrade | bool }}"
+  # Master-worker reload re-executes the master with the new binary: no dropped connections.
+  notify: Reload HAProxy
 
 - name: Hold HAProxy package
   ansible.builtin.dpkg_selections:

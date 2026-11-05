@@ -8,16 +8,18 @@
     group: root
     mode: "0644"
     validate: haproxy -c -f %s
+  diff: "{{ haproxy_config_diff | bool }}"
   when: haproxy_custom_config_file | length > 0
   notify: Reload HAProxy
 
 - name: Render haproxy.cfg
   ansible.builtin.template:
-    src: haproxy.cfg.j2
+    src: "{{ haproxy_config_template }}"
     dest: "{{ haproxy_cfg_file }}"
     owner: root
     group: root
     mode: "0644"
     validate: haproxy -c -f %s
+  diff: "{{ haproxy_config_diff | bool }}"
   when: haproxy_custom_config_file | length == 0
   notify: Reload HAProxy

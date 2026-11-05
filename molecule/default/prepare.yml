@@ -1,0 +1,37 @@
+---
+# Brownfield simulation on noble: an older haproxy-awslc from a legacy list-style source, held,
+# as left by earlier versions of the role. resolute stays empty (fresh install with defaults).
+- name: Prepare an outdated HAProxy
+  hosts: haproxy-noble
+  become: true
+  tasks:
+    - name: Download HAProxy signing key
+      ansible.builtin.get_url:
+        url: https://pks.haproxy.com/linux/community/RPM-GPG-KEY-HAProxy
+        dest: /usr/share/keyrings/HAPROXY-key-community.asc
+        mode: "0644"
+
+    - name: Add legacy list-style source
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/haproxy.list
+        content: |
+          deb [signed-by=/usr/share/keyrings/HAPROXY-key-community.asc] https://www.haproxy.com/download/haproxy/performance/ubuntu/ha34 noble main
+        mode: "0644"
+
+    # haproxy-awslc depends on an exact libssl-awslc version: install the matching older one too.
+    - name: Install an older HAProxy
+      ansible.builtin.apt:
+        name:
+          - haproxy-awslc=3.4.6-*
+          - libssl-awslc=4.0.0-*
+        update_cache: true
+
+    - name: Hold it
+      ansible.builtin.dpkg_selections:
+        name: haproxy-awslc
+        selection: hold
+
+    - name: Start HAProxy
+      ansible.builtin.systemd_service:
+        name: haproxy
+        state: started

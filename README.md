@@ -7,6 +7,12 @@ Installs HAProxy from the official HAProxy Technologies "performance" APT reposi
 - The config is **validated before it is written** (`haproxy -c`), so a broken config never replaces the
   running one.
 - Changes are applied with a **hitless reload**, so existing connections are not dropped.
+- **A version change of an installed package** requires `haproxy_allow_upgrade: true`. Without it a host whose
+  installed `haproxy-awslc` differs from `haproxy_version` (or that has the plain `haproxy` package) fails before
+  the role writes anything: no key, apt source, `python3-debian` or package is touched. A fresh install works
+  with the default. With `true` the pinned version is installed over the hold (an upgrade or a downgrade), held
+  again and picked up by a hitless reload (the master re-executes the new binary). Do it one node at a time:
+  `-e haproxy_allow_upgrade=true`.
 
 ## Requirements
 
@@ -27,10 +33,13 @@ Installs HAProxy from the official HAProxy Technologies "performance" APT reposi
 | `haproxy_version` | `"3.4.7"` | Exact version. Empty means the latest of the major version |
 | `haproxy_package` | `haproxy-awslc` | |
 | `haproxy_hold` | `true` | `apt-mark hold` |
+| `haproxy_allow_upgrade` | `false` | Allow changing the version of an installed package (see above) |
 | `haproxy_repo_enabled` | `true` | Add the repository |
 | `haproxy_gpg_key_url` / `haproxy_gpg_key_path` | HAProxy key | |
 | `haproxy_cfg_file` | `/etc/haproxy/haproxy.cfg` | |
 | `haproxy_custom_config_file` | `""` | Complete config file from the controller. If set, the template is not used |
+| `haproxy_config_template` | `haproxy.cfg.j2` | Template for `haproxy.cfg`. Set it to your own full template (absolute path or a file in the playbook's `templates/`). Validated with `haproxy -c` before it is written |
+| `haproxy_config_diff` | `true` | Show the `haproxy.cfg` diff in `--diff` mode. **Set to `false` when the config contains secrets** (`stats auth`, `userlist` passwords), otherwise they are printed |
 | `haproxy_service_enabled` | `true` | |
 | `haproxy_config` | global + defaults | Structured config, see below |
 
@@ -77,7 +86,10 @@ value if you need them. Keys inside a section are rendered in the order you writ
 ## Testing
 
 `molecule test` (podman): Ubuntu 24.04 and 26.04. The test covers idempotence, a reload that keeps the master
-PID, and rejection of an invalid config.
+PID, and rejection of an invalid config. On 24.04 `prepare` installs an older held `haproxy-awslc` from a legacy
+`haproxy.list`: the default run must fail and leave apt sources, keys and packages untouched, and
+`haproxy_allow_upgrade: true` must upgrade and reload. 26.04 is a fresh install with defaults. A project template
+with `haproxy_config_diff: false` is rendered in `side_effect`.
 
 ## Installation
 
